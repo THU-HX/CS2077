@@ -43,7 +43,7 @@
 
 ![装备采购，预览 M4A1 的青花游龙涂装](docs/screenshots/armory.jpg)
 
-![Dust II 实机画面，显示港区场景、队友雷达和回合 HUD](docs/screenshots/hud.jpg)
+![Dust II 夜间转运站实机画面，CT 手持青花游龙涂装的 AWP](docs/screenshots/dust2-awp.png)
 
 ## 源码与依赖
 
