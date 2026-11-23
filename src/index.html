@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="application-version" content="1.0"><title>CS:2077</title><link rel="stylesheet" href="./ui.css"><!--
+Three.js 0.160.1
+The MIT License
+
+Copyright © 2010-2023 three.js authors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+Original Counter-Strike resources retain Valve and their respective authors' rights.
+Source https://cstrike.csmegagaming.com/ and https://rangfort.ro/cstrike/
+-->
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="loading"><div class="loadbrand"><div class="wordmark"><span>CS:2077</span></div></div><div id="loadText">正在准备夜间场景…</div><progress id="loadProgress" max="5" value="0"></progress><p id="fatal"></p></div>
+<main id="menu" class="hidden">
+ <div id="menuBackground"></div><div class="coverSlash" aria-hidden="true"></div><div id="operatorArt" aria-hidden="true"></div>
+ <header class="menuMast"><span class="heritage"><i aria-hidden="true"></i>CS:2077</span><span class="sessionState">本地对局</span></header>
+ <div class="menuStack">
+  <div id="classicLogo"><h1 class="wordmark"><span>CS:2077</span></h1></div>
+  <h2 class="pauseHeading">对局暂停</h2>
+  <nav id="mainLinks" aria-label="主菜单">
+   <div id="pausePanel" class="hidden"><button id="resume">继续游戏</button><button id="restart">重新开始</button><button id="backMenu">返回主菜单</button></div>
+   <button id="newGameButton">新建游戏</button>
+   <button id="optionsButton">设置</button><button id="controlsButton">操作说明</button><button id="quitButton">退出游戏</button>
+  </nav>
+  <p id="pauseSummary" class="hidden"></p>
+ </div>
+ <footer id="menuFoot"><span id="modeStamp"><b>5 v 5</b>机器人对局</span><div id="menuMap"><small>DE_DUST2</small>夜间转运站</div></footer>
+ <section id="newGame" class="classicDialog hidden" role="dialog" aria-modal="true" aria-label="新建游戏">
+  <div class="dialogTitle"><span>新建游戏</span><button data-close-dialog="newGame" aria-label="关闭">×</button></div>
+  <div class="dialogTabs"><button data-game-tab="server" class="selected">地图</button><button data-game-tab="game">对局规则</button><button data-game-tab="bots">机器人</button></div>
+  <div class="dialogBody">
+   <div data-game-page="server" class="mapSetup"><div><label class="fieldLabel" for="mapSelect">选择地图</label><select id="mapSelect"><option value="de_dust2" selected>de_dust2 · 夜间转运站</option><option value="cs_assault">cs_assault · 机修总厂</option></select><p id="mapDescription">爆破任务。进攻或守住 A、B 两个包点。</p><div class="serverInfo"><span>玩家人数</span><span>10</span><span>游戏模式</span><span>离线 5 对 5</span></div></div><figure class="mapDrawing"><canvas id="mapPlan" width="400" height="272" aria-label="地图平面图和任务位置"></canvas><figcaption id="planCode">DE_DUST2</figcaption></figure></div>
+   <div data-game-page="game" class="hidden"><label class="fieldLabel" for="teamSelect">加入阵营</label><select id="teamSelect"><option value="CT">反恐精英 CT</option><option value="T">恐怖分子 T</option></select><label class="fieldLabel" for="moneySelect">初始资金</label><select id="moneySelect"><option value="800">$800 · 经典经济</option><option value="16000" selected>$16000 · 武器练习</option></select></div>
+   <div data-game-page="bots" class="hidden"><label class="fieldLabel" for="difficulty">机器人难度</label><select id="difficulty"><option value="easy">简单（练习）</option><option value="normal" selected>普通</option><option value="hard">困难</option></select><div class="serverInfo"><span>队友</span><span>4 名机器人</span><span>对手</span><span>5 名机器人</span></div></div>
+  </div>
+  <div class="dialogActions"><button id="start">开始</button><button data-close-dialog="newGame">取消</button></div>
+ </section>
+ <section id="optionsDialog" class="classicDialog hidden" role="dialog" aria-modal="true" aria-label="设置">
+  <div class="dialogTitle"><span>设置</span><button data-close-dialog="optionsDialog" aria-label="关闭">×</button></div>
+  <div class="dialogBody"><label class="fieldLabel" for="quality">画质</label><select id="quality"><option value="low">流畅 · 0.65×</option><option value="medium">标准 · 0.85×</option><option value="high" selected>高 · 1.00×</option></select><fieldset><legend class="fieldLabel">默认武器涂装</legend><div class="finishChoices"></div></fieldset><label class="fieldLabel" for="sensitivity">鼠标灵敏度</label><input id="sensitivity" type="range" min="0.5" max="3" value="1.5" step="0.1"><label class="soundOption"><input id="mute" type="checkbox" checked>启用声音</label></div>
+  <div class="dialogActions"><button data-close-dialog="optionsDialog">确定</button></div>
+ </section>
+ <section id="exitDialog" class="classicDialog hidden" role="dialog" aria-modal="true" aria-label="退出游戏"><div class="dialogTitle"><span>退出游戏</span></div><div class="dialogBody"><p>关闭浏览器标签页或窗口即可退出。</p></div><div class="dialogActions"><button data-close-dialog="exitDialog">返回</button></div></section>
+</main>
+<div id="hud" class="hidden">
+ <canvas id="classicHud"></canvas>
+ <div id="location"></div><canvas id="radar" width="200" height="200"></canvas>
+ <div id="topscore"><span class="ct">CT <b id="ctScore">0</b></span><span id="phaseName">准备</span><span class="terror">T <b id="tScore">0</b></span></div>
+ <div id="killfeed"></div><div id="objective"></div><div id="roundMessage"></div><div id="hint"></div>
+ <div id="crosshair"><i></i><i></i><i></i><i></i></div><div id="scope" class="hidden"><div></div><i></i><b></b></div>
+ <div id="hitMarker" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+ <div id="combatMedal" role="img"><div class="medalFace">
+  <svg id="headConfirm" viewBox="0 0 80 80" aria-hidden="true" fill="none">
+   <path d="M13 32v-9l10-10h9m16 0h9l10 10v9m0 16v9L57 67h-9m-16 0h-9L13 57v-9" stroke="#ecb3ff" stroke-width="4"/>
+   <path d="M25 31l5-9 10-4 10 4 5 9-1 16-7 10-7 5-7-5-7-10z" fill="#20253c" stroke="#e0e7fa" stroke-width="2.5"/>
+   <path d="M28 34l12 4 12-4-2 8-10 4-10-4z" fill="#d895ff"/><path d="M36 51h8M40 9v7M6 40h12m44 0h12" stroke="#fff" stroke-width="2.6"/>
+  </svg><b class="medalCount"></b></div></div>
+ <div id="taskProgress" class="hidden"><span></span><progress max="1" value="0"></progress></div>
+ <div id="damage"></div><div id="flash"></div>
+ <div id="hudbottom"><div class="vitals"><span>✚ <b id="health">100</b></span><span>♜ <b id="armor">0</b></span></div><div id="timer">2:00</div><div class="weaponhud"><div id="money">$ 16000</div><small id="weaponName">USP</small><div id="ammo">12 <em>|</em> 100</div></div></div>
+ <div id="inventory"></div><div id="spectator" class="hidden"></div><div id="netgraph" class="hidden"></div>
+</div>
+<div id="buy" class="overlay hidden"><section class="classicBuy" aria-label="购买菜单"><header><span class="buyPath"><button id="buyRoot" class="hidden" data-category="main">‹ 返回</button><span id="buyTitle">装备采购</span></span><small id="buyMoney"></small></header><div class="buyBody"><div id="buyItems"></div><div id="buyDetails"></div></div><footer><button id="closeBuy"><kbd>0</kbd>取消</button><p id="buyStatus"></p></footer></section></div>
+<div id="scoreboard" class="overlay hidden"><section class="panel"><h1>CS:2077 <small id="scoreMap"></small></h1><div id="scoreRows"></div><p>松开 Tab 关闭 · 先赢 16 回合获胜</p></section></div>
+<div id="help" class="overlay hidden"><section class="panel" role="dialog" aria-modal="true" aria-label="操作说明"><h1>操作说明</h1><div class="helpgrid"><b>W A S D</b><span>移动，Shift 静步，Ctrl / C 蹲伏</span><b>鼠标</b><span>瞄准，左键射击，右键瞄准镜 / 消音器 / Glock 模式 / 匕首副攻击</span><b>Space / R</b><span>跳跃 / 换弹</span><b>1 2 3 4 5 / 滚轮</b><span>主武器、副武器、近战武器、手雷、C4</span><b>B / E / G</b><span>购买装备与涂装 / 使用与拆弹 / 丢下 C4 或当前武器</span><b>C4</b><span>进入包点，切到 5，持续按住左键 3 秒安放</span><b>人质</b><span>CT 靠近按 E，带回 CT 出生营救区</span><b>Tab / Esc / F3</b><span>比分 / 暂停 / 性能统计</span><b>阵亡之后</b><span>左键或 Space 切换观战队友</span></div><p>点击画面锁定鼠标。鼠标锁定不可用时，按住左键拖动转向。站定、蹲伏和短点射提高命中率。</p><button id="closeHelp" class="primary">返回</button></section></div>
+
+<script src="../vendor/three-0.160.1/three.min.js"></script>
+<script src="./embedded-assets.js"></script>
+<script src="./game.js"></script>
+</body></html>
