@@ -1607,7 +1607,54 @@ function resetInput() {
   G.jumpQueued=false;
   drag = false;
 }
+// Let the browser retain Escape and shortcuts unrelated to the game's controls.
+const gameKeyCodes=new Set(['KeyW','KeyA','KeyS','KeyD','KeyC','KeyE','KeyR','KeyG','KeyB',
+  'Digit1','Digit2','Digit3','Digit4','Digit5','Space','Tab','F3']);
+let keyCapture='idle',keyCaptureGeneration=0,keyCaptureDenied=false;
+let expectedFullscreenExit=false;
+function releaseGameKeys(){
+  if(keyCapture==='idle')return;
+  keyCaptureGeneration++;
+  keyCapture='idle';
+  navigator.keyboard?.unlock?.();
+}
+async function syncGameKeys(){
+  if(!document.fullscreenElement || G.state!=='playing' || document.hidden || !document.hasFocus() || !$('buy').classList.contains('hidden')){
+    releaseGameKeys();return;
+  }
+  if(!navigator.keyboard?.lock || keyCaptureDenied || keyCapture!=='idle')return;
+  const generation=++keyCaptureGeneration;
+  keyCapture='pending';
+  try{
+    await navigator.keyboard.lock([...gameKeyCodes]);
+    if(generation===keyCaptureGeneration)keyCapture='active';
+    else if(keyCapture==='idle')navigator.keyboard.unlock();
+  }catch{
+    if(generation!==keyCaptureGeneration)return;
+    keyCapture='idle';keyCaptureDenied=true;
+    hint('浏览器未启用键盘锁定，可按 C 蹲伏，再按 E 交互',6);
+  }
+}
+async function playFullscreen(action){
+  keyCaptureDenied=false;
+  if(!document.fullscreenElement){
+    try{await document.documentElement.requestFullscreen();}
+    catch{/* Continue in the window when fullscreen is unavailable. */}
+  }
+  await action();
+  if(G.state==='playing'&&(!document.fullscreenElement||!navigator.keyboard?.lock)){
+    hint('当前浏览器可用 C 蹲伏，再按 E 交互',6);
+  }
+}
+async function leaveGameFullscreen(){
+  if(!document.fullscreenElement)return;
+  // The fullscreenchange event can arrive after exitFullscreen resolves and a new round starts.
+  expectedFullscreenExit=true;
+  try{await document.exitFullscreen();}
+  catch{expectedFullscreenExit=false;}
+}
 function requestMouse() {
+  syncGameKeys();
   initAudio();
   try {
     const result = $('game').requestPointerLock();
@@ -3981,6 +4028,7 @@ function buyAllowed() {
 
 function openBuy() {
   if(G.state!=='playing'||!G.player?.alive)return;
+  releaseGameKeys();
   resetInput();G.buyPinned=false;G.buySelection=null;G.buyPage='main';$('buy').classList.remove('hidden');closePointer();updateBuy();
 }
 
@@ -4150,6 +4198,7 @@ function handleBuyKey(event) {
 
 function pauseGame() {
   if(G.state!=='playing')return;
+  releaseGameKeys();
   clearHitMarker();clearCombatMedal();
   G.state='paused';resetInput();closeBuy();
   closeMenuDialogs();$('menu').classList.remove('hidden');$('menu').classList.add('in-game');$('pausePanel').classList.remove('hidden');$('pauseSummary').classList.remove('hidden');
@@ -4171,12 +4220,25 @@ async function startGame() {
   setQuality();requestMouse();
 }
 function backToMenu() {
+  releaseGameKeys();
   G.state='menu';resetInput();closeBuy();closePointer();resetRoundObjects();
+  leaveGameFullscreen();
   closeMenuDialogs();$('menu').classList.remove('hidden','in-game');$('pausePanel').classList.add('hidden');$('pauseSummary').classList.add('hidden');$('hud').classList.add('hidden');
 }
 function setupInput() {
   setupClassicUI();
-  $('start').onclick=startGame;$('resume').onclick=resumeGame;
+  $('start').onclick=()=>playFullscreen(startGame);
+  $('startWindow').onclick=async()=>{
+    await leaveGameFullscreen();
+    await startGame();
+  };
+  $('resume').onclick=resumeGame;$('resumeFullscreen').onclick=()=>playFullscreen(resumeGame);
+  document.addEventListener('fullscreenchange',()=>{
+    if(!document.fullscreenElement&&!expectedFullscreenExit&&G.state==='playing')pauseGame();
+    expectedFullscreenExit=false;
+    $('resumeFullscreen').classList.toggle('hidden',!!document.fullscreenElement);
+    syncGameKeys();
+  });
   $('restart').onclick=()=>{G.score={CT:0,T:0};G.round=0;G.elapsed=0;G.aiSeed=Math.random();spawnRound(false);resumeGame();};
   $('backMenu').onclick=backToMenu;
   $('controlsButton').onclick=()=>{$('help').classList.remove('hidden');$('closeHelp').focus();};$('closeHelp').onclick=()=>dismissMenuDialog('help');
@@ -4186,7 +4248,7 @@ function setupInput() {
   $('closeBuy').onclick=()=>{closeBuy();requestMouse();};
   addEventListener('resize',setQuality);
   addEventListener('keydown',event=>{
-    if(event.code==='Tab'&&G.state!=='playing'){
+    if(event.code==='Tab'&&!event.ctrlKey&&!event.metaKey&&!event.altKey&&G.state!=='playing'){
       const dialog=document.querySelector('#help:not(.hidden) .panel,#menu:not(.hidden) .classicDialog:not(.hidden)');
       if(dialog){
         const focusable=[...dialog.querySelectorAll('button:enabled,select:enabled,input:enabled')].filter(el=>el.getClientRects().length);
@@ -4197,9 +4259,10 @@ function setupInput() {
       }
     }
     const inShop=G.state==='playing'&&!$('buy').classList.contains('hidden');
+    if(event.metaKey||event.altKey||(inShop&&event.ctrlKey))return;
     if(inShop&&event.code==='Tab')return;
     if(inShop&&['Enter','Space'].includes(event.code)&&event.target.closest('#buy button'))return;
-    if(G.state==='playing'&&['Space','Tab','AltLeft','ControlLeft','F3'].includes(event.code))event.preventDefault();
+    if(G.state==='playing'&&!inShop&&gameKeyCodes.has(event.code))event.preventDefault();
     if(event.code==='Escape') {
       const dialog=['newGame','optionsDialog','exitDialog'].find(id=>!$(id).classList.contains('hidden'));
       if(dialog&&!$('menu').classList.contains('hidden')){dismissMenuDialog(dialog);return;}
@@ -4254,6 +4317,7 @@ function setupInput() {
     if(G.pointerUnlockExpected){G.pointerUnlockExpected=false;return;}
     if(!document.pointerLockElement&&G.state==='playing'&&$('buy').classList.contains('hidden')&&$('help').classList.contains('hidden'))pauseGame();
   });
+  addEventListener('focus',syncGameKeys);
   addEventListener('blur',()=>{if(G.state==='playing')pauseGame();resetInput();});
   document.addEventListener('visibilitychange',()=>{if(document.hidden&&G.state==='playing')pauseGame();});
 }

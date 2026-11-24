@@ -37,7 +37,7 @@ Source https://cstrike.csmegagaming.com/ and https://rangfort.ro/cstrike/
   <div id="classicLogo"><h1 class="wordmark"><span>CS:2077</span></h1></div>
   <h2 class="pauseHeading">对局暂停</h2>
   <nav id="mainLinks" aria-label="主菜单">
-   <div id="pausePanel" class="hidden"><button id="resume">继续游戏</button><button id="restart">重新开始</button><button id="backMenu">返回主菜单</button></div>
+   <div id="pausePanel" class="hidden"><button id="resume">继续游戏</button><button id="resumeFullscreen">全屏继续</button><button id="restart">重新开始</button><button id="backMenu">返回主菜单</button></div>
    <button id="newGameButton">新建游戏</button>
    <button id="optionsButton">设置</button><button id="controlsButton">操作说明</button><button id="quitButton">退出游戏</button>
   </nav>
@@ -52,7 +52,7 @@ Source https://cstrike.csmegagaming.com/ and https://rangfort.ro/cstrike/
    <div data-game-page="game" class="hidden"><label class="fieldLabel" for="teamSelect">加入阵营</label><select id="teamSelect"><option value="CT">反恐精英 CT</option><option value="T">恐怖分子 T</option></select><label class="fieldLabel" for="moneySelect">初始资金</label><select id="moneySelect"><option value="800">$800 · 经典经济</option><option value="16000" selected>$16000 · 武器练习</option></select></div>
    <div data-game-page="bots" class="hidden"><label class="fieldLabel" for="difficulty">机器人难度</label><select id="difficulty"><option value="easy">简单（练习）</option><option value="normal" selected>普通</option><option value="hard">困难</option></select><div class="serverInfo"><span>队友</span><span>4 名机器人</span><span>对手</span><span>5 名机器人</span></div></div>
   </div>
-  <div class="dialogActions"><button id="start">开始</button><button data-close-dialog="newGame">取消</button></div>
+  <div class="dialogActions"><button id="start">全屏开始</button><button id="startWindow">窗口开始</button><button data-close-dialog="newGame">取消</button></div>
  </section>
  <section id="optionsDialog" class="classicDialog hidden" role="dialog" aria-modal="true" aria-label="设置">
   <div class="dialogTitle"><span>设置</span><button data-close-dialog="optionsDialog" aria-label="关闭">×</button></div>
@@ -81,7 +81,7 @@ Source https://cstrike.csmegagaming.com/ and https://rangfort.ro/cstrike/
 </div>
 <div id="buy" class="overlay hidden"><section class="classicBuy" aria-label="购买菜单"><header><span class="buyPath"><button id="buyRoot" class="hidden" data-category="main">‹ 返回</button><span id="buyTitle">装备采购</span></span><small id="buyMoney"></small></header><div class="buyBody"><div id="buyItems"></div><div id="buyDetails"></div></div><footer><button id="closeBuy"><kbd>0</kbd>取消</button><p id="buyStatus"></p></footer></section></div>
 <div id="scoreboard" class="overlay hidden"><section class="panel"><h1>CS:2077 <small id="scoreMap"></small></h1><div id="scoreRows"></div><p>松开 Tab 关闭 · 先赢 16 回合获胜</p></section></div>
-<div id="help" class="overlay hidden"><section class="panel" role="dialog" aria-modal="true" aria-label="操作说明"><h1>操作说明</h1><div class="helpgrid"><b>W A S D</b><span>移动，Shift 静步，Ctrl / C 蹲伏</span><b>鼠标</b><span>瞄准，左键射击，右键瞄准镜 / 消音器 / Glock 模式 / 匕首副攻击</span><b>Space / R</b><span>跳跃 / 换弹</span><b>1 2 3 4 5 / 滚轮</b><span>主武器、副武器、近战武器、手雷、C4</span><b>B / E / G</b><span>购买装备与涂装 / 使用与拆弹 / 丢下 C4 或当前武器</span><b>手雷</b><span>按住左键瞄准并蓄力，松开投出。切换武器可取消。</span><b>C4</b><span>进入包点，切到 5，持续按住左键 3 秒安放</span><b>人质</b><span>CT 靠近按 E，带回 CT 出生营救区</span><b>Tab / Esc / F3</b><span>比分 / 暂停 / 性能统计</span><b>阵亡之后</b><span>左键或 Space 切换观战队友</span></div><p>点击画面锁定鼠标。鼠标锁定不可用时，按住左键拖动转向。站定、蹲伏和短点射提高命中率。</p><button id="closeHelp" class="primary">返回</button></section></div>
+<div id="help" class="overlay hidden"><section class="panel" role="dialog" aria-modal="true" aria-label="操作说明"><h1>操作说明</h1><div class="helpgrid"><b>W A S D</b><span>移动，Shift 静步，Ctrl / C 蹲伏</span><b>全屏键盘</b><span>全屏开始可保护 Ctrl + E 等游戏组合键。若快捷键被浏览器占用，按住 C 蹲伏再按 E。Esc 暂停。</span><b>鼠标</b><span>瞄准，左键射击，右键瞄准镜 / 消音器 / Glock 模式 / 匕首副攻击</span><b>Space / R</b><span>跳跃 / 换弹</span><b>1 2 3 4 5 / 滚轮</b><span>主武器、副武器、近战武器、手雷、C4</span><b>B / E / G</b><span>购买装备与涂装 / 使用与拆弹 / 丢下 C4 或当前武器</span><b>手雷</b><span>按住左键瞄准并蓄力，松开投出。切换武器可取消。</span><b>C4</b><span>进入包点，切到 5，持续按住左键 3 秒安放</span><b>人质</b><span>CT 靠近按 E，带回 CT 出生营救区</span><b>Tab / Esc / F3</b><span>比分 / 暂停 / 性能统计</span><b>阵亡之后</b><span>左键或 Space 切换观战队友</span></div><p>点击画面锁定鼠标。鼠标锁定不可用时，按住左键拖动转向。站定、蹲伏和短点射提高命中率。</p><button id="closeHelp" class="primary">返回</button></section></div>
 
 <script src="../vendor/three-0.160.1/three.min.js"></script>
 <script src="./embedded-assets.js"></script>

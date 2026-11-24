@@ -23,6 +23,8 @@
 
 ## 键鼠操作
 
+使用 Chrome 或 Edge 时，选择「新建游戏 → 全屏开始」，若浏览器询问键盘锁定权限，可以允许。对局中可按住 Ctrl 蹲伏，再按 E 交互或 W 前进；Esc 暂停，打开采购菜单也会释放键盘锁定。选择「窗口开始」或浏览器未授予键盘锁定时，按住 C 也能蹲伏并配合 E。网页发起的全屏支持锁定游戏键，操作系统保留的快捷键仍由系统处理。[Chrome 键盘锁定说明](https://developer.chrome.com/docs/capabilities/web-apis/keyboard-lock)
+
 | 操作 | 按键 |
 | --- | --- |
 | 移动、静步、蹲伏、跳跃 | W / A / S / D，Shift，Ctrl 或 C，空格 |
