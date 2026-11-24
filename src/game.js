@@ -1231,6 +1231,16 @@ async function loadModels(THREE, modelData) {
     const update = root.update;
     const play = root.play;
     let silenced = true;
+    let readyPose=0;
+    if(id==='he'){
+      root.primeGrenade=()=>{readyPose=0;root.play('idle');};
+      root.releaseGrenade=()=>{
+        // Continue the arm swing with empty hands after the projectile leaves.
+        const studio=root.userData.studio,mesh=native.children.find(part=>part.isSkinnedMesh);
+        mesh.material=mesh.material.map((material,i)=>/^view_/i.test(studio.asset.source.textures[i].name)?material:hiddenBlade);
+        root.play('fire');studio.animate(.38,false);
+      };
+    }
     root.play = (action, restart = true) => {
       drawTime=action==='draw'?0:Infinity;
       root.userData.blade?.pose(action==='draw'?0:1);
@@ -1265,6 +1275,11 @@ async function loadModels(THREE, modelData) {
       root.position.y-=ease*ease*(blade?1.8:.8);
       root.position.x+=ease*(blade ? 1.35 : .52);
       root.rotation.z=Math.sin(time*9)*movement*.004+ease*(blade ? .16 : .075)-sway*(id==='karambit'?.20:.055);
+      if(id==='he'){
+        readyPose=THREE.MathUtils.damp(readyPose,options.priming?1:0,12,dt);
+        root.position.x+=.65*readyPose;root.position.y+=.55*readyPose;
+        root.rotation.z-=.075*readyPose;
+      }
       if(options.audible&&id==='butterfly'){
         for(const beat of [.17,.50])if(previous<beat&&drawTime>=beat)shortTone(beat<.3?1460:1780,480,0,.035,.044,'triangle');
       }
@@ -1586,6 +1601,7 @@ function setQuality() {
   if (G.map) G.map.setQuality(G.quality);
 }
 function resetInput() {
+  cancelGrenadeAim();
   G.input.clear();
   G.fireHeld = G.fireEdge = G.altEdge = G.useHeld = G.useEdge = false;
   G.jumpQueued=false;
@@ -1989,6 +2005,7 @@ async function changeMap(name) {
 
 }
 function resetRoundObjects() {
+  cancelGrenadeAim();
   clearHitMarker();clearCombatMedal();clearBlasts();
   clearSpectatorView();
   for(const actor of [...G.actors,...G.hostages]) {
@@ -2068,8 +2085,9 @@ function spawnRound(carry=true) {
 }
 function setWeapon(slot) {
   const actor=G.player;if(!actor||!actor.inventory[slot])return;
+  cancelGrenadeAim();
   if(G.viewWeapon){viewScene.remove(G.viewWeapon);G.viewWeapon.dispose();}
-  actor.slot=+slot;actor.reload=0;actor.reloadId=null;actor.throwTimer=0;actor.burstRemaining=0;actor.scopeTimer=0;actor.resumeScope=0;actor.cooldown=.35;
+  actor.slot=+slot;actor.reload=0;actor.reloadId=null;actor.burstRemaining=0;actor.scopeTimer=0;actor.resumeScope=0;actor.cooldown=.35;
   G.scope=0;G.recoil=0;G.viewId=actor.inventory[slot].id;
   G.viewWeapon=G.models.createViewWeapon(G.viewId,actor.inventory[slot].finish);viewScene.add(G.viewWeapon);
   if(G.viewWeapon.setSilenced&&['m4a1','usp'].includes(G.viewId)) {
@@ -2105,10 +2123,6 @@ function updateWeapon(actor,dt) {
       if(actor.alive&&G.phase==='live'&&!actor.reload)shoot(actor,false,true);
       else actor.burstRemaining=0;
     }
-  }
-  if(actor.throwTimer>0) {
-    actor.throwTimer-=dt;
-    if(actor.throwTimer<=0&&actor.alive&&G.phase==='live'&&actor.inventory[4])throwGrenade(actor,true);
   }
   if(actor.reload>0) {
     actor.reload-=dt;
@@ -2460,6 +2474,7 @@ function damageActor(victim,damage,attacker,weapon,head=false,blastBatch=null) {
   if(victim.human){G.damage=.65;G.kick+=.012;eventLog('damage',{damage:appliedDamage,hp:victim.hp,attacker:attacker?.id,weapon,head});}
   if(victim.hp>0)return;
   victim.hp=0;victim.alive=false;victim.deaths++;victim.reload=0;victim.vel.set(0,0,0);
+  if(victim.human)cancelGrenadeAim();
   if(attacker&&attacker!==victim){attacker.kills++;attacker.money=Math.min(16000,attacker.money+(isMelee(weapon)?1500:300));}
   if(attacker===victim)attacker.kills--;
   if(G.bomb.carrier===victim.id)dropBomb(victim);
@@ -2475,7 +2490,7 @@ function shoot(actor,alternate=false,burstFollowup=false) {
   const aimRecoil=actor.human?G.recoil:(actor.botRecoil||0);
   if(actor.cooldown>0&&!burstFollowup||actor.reload>0||!actor.alive||G.phase!=='live')return;
   if(item.id==='c4')return;
-  if(item.id==='he'){throwGrenade(actor);return;}
+  if(item.id==='he'){if(!actor.human)throwGrenade(actor);return;}
   if(weapon.clip&&item.ammo===0){actor.burstRemaining=0;sound('dryfire_rifle',actor.human?null:actor.pos,.5);actor.cooldown=.3;reload(actor);return;}
   if(!burstFollowup)actor.cooldown=item.id==='glock'&&item.burst?.5:weapon.interval*(alternate&&isMelee(item.id)?2.5:1);
   if(item.id==='glock'&&item.burst&&!burstFollowup){actor.burstRemaining=2;actor.burstTimer=.06;}
@@ -2524,18 +2539,54 @@ function shoot(actor,alternate=false,burstFollowup=false) {
   if(item.id==='awp'&&actor.human&&G.scope>0){actor.resumeScope=G.scope;actor.scopeTimer=1.45;G.scope=0;}
   if(item.id==='awp'&&!actor.human){actor.botScoped=false;actor.botStillAim=0;}
 }
-function throwGrenade(actor,immediate=false) {
-  if(actor.human&&!immediate) {
-    actor.throwTimer=.38;actor.cooldown=1;G.viewWeapon.play('fire');sound('pinpull',null,.6);return;
+const grenadeGravity=500,grenadeFuse=1.7,grenadeChargeMs=1000;
+let grenadePressedAt=null,throwHand=null;
+function grenadeCharge(){return clamp((performance.now()-grenadePressedAt)/grenadeChargeMs,0,1);}
+function cancelGrenadeAim(){
+  if(grenadePressedAt!==null)G.viewWeapon?.play('idle');
+  grenadePressedAt=null;
+  if(throwHand){viewScene.remove(throwHand.model);throwHand.model.dispose();throwHand=null;}
+}
+function beginGrenadeAim(){
+  if(grenadePressedAt!==null||G.phase==='ended'||!$('buy').classList.contains('hidden'))return;
+  grenadePressedAt=performance.now();
+  G.viewWeapon.primeGrenade();sound('pinpull',null,.6);
+}
+function grenadeLaunch(actor,power){
+  const direction=forward(actor.yaw,clamp(actor.pitch+.12,-Math.PI/2,Math.PI/2));
+  const origin=eye(actor),start=origin.clone().addScaledVector(direction,20);
+  if(actor.human){
+    start.x+=6*Math.cos(actor.yaw);start.z-=6*Math.sin(actor.yaw);start.y-=3;
   }
+  const trace=G.map.trace(origin,start,0);
+  const pos=trace.endPos.clone();
+  if(trace.hit)pos.addScaledVector(trace.plane.normal,.5);
+  const vel=direction.multiplyScalar(260+390*power).add(actor.vel);vel.y+=55+25*power;
+  return {pos,vel};
+}
+function releaseGrenadeAim(){
+  if(grenadePressedAt===null)return;
+  const actor=G.player;
+  if(G.state!=='playing'||G.phase!=='live'||!actor?.alive||actor.slot!==4||actor.inventory[4]?.id!=='he'){
+    cancelGrenadeAim();return;
+  }
+  const power=grenadeCharge(),hand=G.viewWeapon;
+  grenadePressedAt=null;
+  hand.releaseGrenade();G.viewWeapon=null;
+  throwGrenade(actor,power);
+  throwHand={model:hand,remaining:.22};
+}
+function throwGrenade(actor,power=1) {
+  if(actor.inventory[4]?.id!=='he')return;
   actor.cooldown=1;
   if(!actor.human)sound('pinpull',actor.pos,.6);
   const mesh=G.models.createWorldWeapon('he',actor.inventory[4]?.finish);
-  const direction=forward(actor.yaw,actor.pitch+.12),pos=eye(actor).addScaledVector(direction,20);
+  const {pos,vel}=grenadeLaunch(actor,power);
   mesh.position.copy(pos);scene.add(mesh);
-  G.grenades.push({mesh,pos,vel:direction.multiplyScalar(650).add(actor.vel).add(V(0,80,0)),timer:1.7,owner:actor.id});
+  G.grenades.push({mesh,pos,vel,timer:grenadeFuse,owner:actor.id});
   delete actor.inventory[4];
-  if(actor.human){setWeapon(actor.inventory[1]?1:2);eventLog('grenade_throw');}else actor.slot=actor.inventory[1]?1:2;
+  const next=actor.inventory[1]?1:actor.inventory[2]?2:3;
+  if(actor.human){setWeapon(next);eventLog('grenade_throw',{power});}else actor.slot=next;
 }
 const HE_BLAST_ATLAS='./assets/blast.webp';
 // A Saltline-style pressure front and brief local illumination accompany the HE fire and smoke.
@@ -2688,7 +2739,7 @@ function updateBlasts(dt){
 }
 function updateGrenades(dt) {
   for(let i=G.grenades.length-1;i>=0;i--) {
-    const grenade=G.grenades[i];grenade.timer-=dt;grenade.vel.y-=500*dt;
+    const grenade=G.grenades[i];grenade.timer-=dt;grenade.vel.y-=grenadeGravity*dt;
     const trace=G.map.trace(grenade.pos,grenade.pos.clone().addScaledVector(grenade.vel,dt),0);
     grenade.pos.copy(trace.endPos);
     if(trace.hit){grenade.vel.reflect(trace.plane.normal).multiplyScalar(.5);grenade.pos.addScaledVector(trace.plane.normal,1);sound('he_bounce-1',grenade.pos,.4);}
@@ -3426,6 +3477,7 @@ function updatePlayer(dt) {
 }
 function endRound(team,reason) {
   if(G.phase==='ended')return;
+  cancelGrenadeAim();
   G.phase='ended';G.phaseTime=6;G.winner=team;G.score[team]++;
   const match=G.score[team]>=16;
   announce((team==='CT'?'反恐精英胜利':'恐怖分子胜利')+'\n'+reason+(match?'\n比赛结束':''),6);
@@ -3571,10 +3623,15 @@ function updateCamera(dt) {
   camera.fov = scope === 1 ? 30.54 : scope === 2 ? 7.51 : 73.74;
   camera.updateProjectionMatrix();
   for (const other of G.actors) other.mesh.visible = other !== actor;
+  if(throwHand){
+    throwHand.remaining-=dt;
+    if(throwHand.remaining<=0)cancelGrenadeAim();
+    else{throwHand.model.update(dt);G.activeViewWeapon=throwHand.model;}
+  }
   if (G.viewWeapon) {
-    G.viewWeapon.visible = actor === G.player && actor.alive && scope === 0;
+    G.viewWeapon.visible = !throwHand && actor === G.player && actor.alive && scope === 0;
     if (G.viewWeapon.visible) {
-      G.viewWeapon.update(G.state === 'playing' ? dt : 0, {audible:true,move: Math.hypot(actor.vel.x, actor.vel.z) / 250});
+      G.viewWeapon.update(G.state === 'playing' ? dt : 0, {audible:true,priming:grenadePressedAt!==null,move: Math.hypot(actor.vel.x, actor.vel.z) / 250});
     }
   }
   if (muzzleFlash) {
@@ -3648,13 +3705,15 @@ function updateHUD() {
     else if(G.bomb.carrier===G.player.id&&siteAt(G.player))contextual='5 切到 C4 · 按住左键安放';
     else if(G.doors?.some(d=>G.player.pos.clone().add(V(0,36,0)).distanceTo(entityPosition(d.entity))<125))contextual='E 开门';
   }
-  $('hint').textContent=G.elapsed<G.hintUntil?G.hintText:contextual;
+  const hintText=G.elapsed<G.hintUntil?G.hintText:contextual;
+  $('hint').textContent=grenadePressedAt===null?hintText:'';
   $('crosshair').classList.toggle('hidden',scope>0||!actor.alive||weapon.slot>=4||item?.id==='awp');
   $('crosshair').style.setProperty('--gap',(5+actor.accuracy*2+Math.hypot(actor.vel.x,actor.vel.z)*.035)+'px');
   $('scope').classList.toggle('hidden',scope===0||!actor.alive);
   $('damage').style.opacity=G.damage;$('flash').style.opacity=G.flash;
-  $('taskProgress').classList.toggle('hidden',!G.task);
-  if(G.task){$('taskProgress').querySelector('span').textContent=G.task.text;$('taskProgress').querySelector('progress').value=G.task.value;}
+  const task=G.task;
+  $('taskProgress').classList.toggle('hidden',!task);
+  if(task){$('taskProgress').querySelector('span').textContent=task.text;$('taskProgress').querySelector('progress').value=task.value;}
   $('killfeed').innerHTML=G.feed.map(f=>'<div><span class="'+(f.team==='CT'?'ct':'terror')+'">'+f.killer+'</span> &nbsp; '+(WEAPONS[f.weapon]?.name||f.weapon)+(f.head?' ◉':'')+' &nbsp; <span class="'+(f.victimTeam==='CT'?'ct':'terror')+'">'+f.dead+'</span></div>').join('');
   $('inventory').innerHTML=Object.entries(actor.inventory).map(([slot,item])=>'<div class="'+(actor.slot===+slot?'equipped':'')+'"><kbd>'+slot+'</kbd>'+WEAPONS[item.id].name+'</div>').join('');
   $('spectator').classList.toggle('hidden',G.player.alive);
@@ -3681,7 +3740,7 @@ const BUY_INFO = {
   deagle: {label:'NIGHT HAWK .50C / DESERT EAGLE',country:'以色列',caliber:'.50 AE',weight:'1.8 kg'},
   vest: {label:'防弹衣',description:'提供 100 点护甲。'},
   armor: {label:'防弹衣和头盔',description:'提供 100 点护甲和头盔。'},
-  he: {label:'高爆手雷',description:'投掷后延时引爆。'},
+  he: {label:'高爆手雷',description:'按住左键瞄准、蓄力，松手投出。短按近投，蓄满远投。'},
   kit: {label:'拆弹器',description:'拆除 C4 所需时间缩短至 5 秒。'}
 };
 
@@ -4167,12 +4226,20 @@ function setupInput() {
     if(G.state!=='playing')return;
     if(!G.player.alive){cycleSpectator(event.button===2?-1:1);return;}
     if(!document.pointerLockElement){requestMouse();drag=true;mouseLast=[event.clientX,event.clientY];}
-    if(event.button===0){G.fireHeld=G.fireEdge=true;}
+    if(event.button===0){
+      if(G.player.inventory[G.player.slot]?.id==='he')beginGrenadeAim();
+      else G.fireHeld=G.fireEdge=true;
+    }
     if(event.button===2)G.altEdge=true;
   });
-  addEventListener('mouseup',event=>{if(event.button===0){G.fireHeld=false;drag=false;}});
+  addEventListener('mouseup',event=>{
+    if(event.button!==0)return;
+    G.fireHeld=false;drag=false;
+    releaseGrenadeAim();
+  });
   addEventListener('mousemove',event=>{
     if(G.state!=='playing'||!G.player?.alive)return;
+    if(grenadePressedAt!==null&&!(event.buttons&1))cancelGrenadeAim();
     const locked=document.pointerLockElement===$('game');if(!locked&&!drag)return;
     const x=locked?event.movementX:event.clientX-mouseLast[0],y=locked?event.movementY:event.clientY-mouseLast[1];
     mouseLast=[event.clientX,event.clientY];
